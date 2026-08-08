@@ -1,5 +1,6 @@
 import flet as ft
-from logica import (leer_coordenadas_actual, coordenadas_a_direccion,
+from api import leer_coordenadas_actual
+from logica import (coordenadas_a_direccion,
                     direccion_a_coordenadas, evaluar_coordenadas)
 
 
@@ -8,6 +9,15 @@ def crear_pantalla_principal(page: ft.Page):
     # --- OBTENER UBICACION ACTUAL ---
     #
     lat, lon = leer_coordenadas_actual()
+    # Validación mínima
+    if lat is None or lon is None:
+        page.dialog = ft.AlertDialog(
+            title=ft.Text("Error"),
+            content=ft.Text("No se pudo obtener las coordenadas de la ubicación actual."),
+        )
+        page.dialog.open = True
+        page.update()
+        return
     direccion_actual = coordenadas_a_direccion(lat, lon)
 
     #
