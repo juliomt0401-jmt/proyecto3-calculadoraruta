@@ -1,7 +1,6 @@
 import flet as ft
-from api import leer_coordenadas_actual
-from logica import (coordenadas_a_direccion,
-                    direccion_a_coordenadas, evaluar_coordenadas)
+from api import leer_coordenadas_actual, coordenadas_a_direccion
+from logica import (direccion_a_coordenadas, evaluar_coordenadas)
 
 
 def crear_pantalla_principal(page: ft.Page):

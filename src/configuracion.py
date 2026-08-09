@@ -1,0 +1,1 @@
+API_KEY_GEOAPIFY = "eb4db73addfd4ac699e5fb147c915867"
