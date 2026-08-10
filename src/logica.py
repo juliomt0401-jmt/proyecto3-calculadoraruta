@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 def limpiar_tipo_via(street):
     if street is None:
         return None
@@ -60,3 +62,26 @@ def obtener_coordenadas_validas(datajson):
     lon = r_menor.get("lon")
 
     return lat, lon
+
+def calcula_tiempo_distancia(tiempo_s, distancia_m):
+    if tiempo_s is None or distancia_m is None:
+        return None, None, None
+
+    # Convertir a minutos y kilómetros
+    tiempo_min = tiempo_s / 60
+    distancia_km = float(distancia_m / 1000)
+
+    # Calcular horas y minutos
+    horas = int(tiempo_min // 60)
+    minutos = int(tiempo_min % 60)
+
+    return horas, minutos, distancia_km
+
+def calcular_tarifa(hora, minutos, km, precio_hora, precio_km):
+    if hora is None or minutos is None or km is None:
+        return None, None
+
+    # Calcular tarifa
+    tarifa_hora = Decimal((hora * precio_hora) + (minutos / 60 * precio_hora))
+    tarifa_distancia = Decimal(km * precio_km)
+    return tarifa_hora, tarifa_distancia

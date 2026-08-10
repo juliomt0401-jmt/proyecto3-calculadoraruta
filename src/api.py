@@ -82,3 +82,41 @@ def direccion_a_coordenadas(direccion):
 
     except Exception:
         return None, None
+
+def evaluar_coordenadas(lat1, lon1, lat2, lon2):
+    # Validación básica
+    if None in [lat1, lon1, lat2, lon2]:
+        return None, None
+
+    try:
+        url = (
+            "https://api.geoapify.com/v1/routing?"
+            f"waypoints={lat1},{lon1}|{lat2},{lon2}&"
+            "mode=drive&"
+            f"apiKey={API_KEY_GEOAPIFY}"
+        )
+
+        data = requests.get(url).json()
+
+        # Extraer ruta
+        features = data.get("features")
+        if not features:
+            return None, None
+
+        propiedades = features[0].get("properties", {})
+        leg = propiedades.get("legs", [{}])[0]
+
+        distancia_m = leg.get("distance")
+        tiempo_s = leg.get("time")
+
+        if distancia_m is None or tiempo_s is None:
+            return None, None
+
+        # Convertir unidades
+        distancia_km = distancia_m / 1000
+        tiempo_min = tiempo_s / 60
+
+        return distancia_m, tiempo_s
+
+    except Exception:
+        return None, None

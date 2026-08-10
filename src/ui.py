@@ -1,6 +1,7 @@
 import flet as ft
-from api import leer_coordenadas_actual, coordenadas_a_direccion, direccion_a_coordenadas
-from logica import evaluar_coordenadas
+from api import (leer_coordenadas_actual, coordenadas_a_direccion, 
+                 direccion_a_coordenadas, evaluar_coordenadas)
+from logica import calcula_tiempo_distancia, calcular_tarifa
 
 def mostrar_error(page, mensaje):
     page.dialog = ft.AlertDialog(
@@ -12,6 +13,12 @@ def mostrar_error(page, mensaje):
 
 def crear_pantalla_principal(page: ft.Page):
     #
+    # --- VARIABLES ---
+    #
+    hora = int(0)
+    minutos = int(0)
+    km = float(0)
+
     # --- OBTENER UBICACION ACTUAL ---
     #
     lat, lon = leer_coordenadas_actual()
@@ -25,111 +32,69 @@ def crear_pantalla_principal(page: ft.Page):
             direccion_actual = ""
 
     #
-    # --- OBJETOS PRINCIPALES ---
+    # --- OBJETOS
     #
 
-    # Dirección 1 (inicializada con la direccion actual)
-    direccion1 = ft.TextField(
-        label="Dirección de origen",
-        value=direccion_actual,
-        width=400,
-        disabled=False,
-        visible=True
-    )
-
-    # Dirección 2
-    direccion2 = ft.TextField(
-        label="Dirección de destino",
-        value="",
-        width=400,
-        disabled=False,
-        visible=True
-    )
+    # Direcciones
+    label_paso_1 = ft.Text("Paso 1:", weight="bold")
+    direccion1 = ft.TextField(label="Dirección de origen", value=direccion_actual, width=800)
+    direccion2 = ft.TextField(label="Dirección de destino", value="", width=800)
 
     # Botón calcular tiempo/distancia
-    boton_calcular_td = ft.ElevatedButton(
-        "Calcular tiempo/distancia",
-        disabled=False,
-        visible=True
-    )
-    boton_calcular_td.on_click = calcular_td_click
+    boton_calcular_td = ft.ElevatedButton("Calcular tiempo/distancia")
 
-
-
-
-
-
-
-
-
-
-
-
-    #
-    # --- OBJETOS OCULTOS INICIALMENTE ---
-    #
-
-    # Tiempo
-    label_tiempo = ft.Text("Tiempo estimado:", visible=True)
-    valor_tiempo = ft.Text("", visible=False)
-
-    # Distancia
-    label_distancia = ft.Text("Distancia:", visible=True)
-    valor_distancia = ft.Text("", visible=False)
+    # Tiempo y distancia
+    label_paso_2 = ft.Text("Paso 2:", weight="bold")
+    label_tiempo = ft.Text("Tiempo estimado:")
+    valor_tiempo = ft.Text("", weight="bold")
+    label_distancia = ft.Text("Distancia:")
+    valor_distancia = ft.Text("", weight="bold")
+    fila_tiempo = ft.Row([label_tiempo, valor_tiempo])
+    fila_distancia = ft.Row([label_distancia, valor_distancia])
 
     # Precio por hora
-    precio_hora = ft.TextField(
-        label="Precio por hora (S/)",
-        value="0",
-        width=200,
-        disabled=True,
-        visible=False
-    )
+    precio_hora = ft.TextField(label="Precio por hora (S/)", value="0", width=200)
 
     # Precio por km
-    precio_km = ft.TextField(
-        label="Precio por km (S/)",
-        value="0",
-        width=200,
-        disabled=True,
-        visible=False
-    )
+    precio_km = ft.TextField(label="Precio por km (S/)", value="0", width=200)
 
     # Botón calcular tarifa
-    boton_calcular_tarifa = ft.ElevatedButton(
-        "Calcular tarifa",
-        disabled=True,
-        visible=False
-    )
+    boton_regresar_paso1 = ft.ElevatedButton("Regresar")
+    boton_calcular_tarifa = ft.ElevatedButton("Calcular tarifa")
 
-    # Tarifa por hora
+    # Tarifa por hora y distancia
     label_tarifa_hora = ft.Text("Tarifa por hora:", visible=False)
-    valor_tarifa_hora = ft.Text("", visible=False)
+    valor_tarifa_hora = ft.Text("", weight="bold")
+    label_tarifa_distancia = ft.Text("Tarifa por distancia:")
+    valor_tarifa_distancia = ft.Text("", weight="bold")
+    fila_tarifa_hora = ft.Row([label_tarifa_hora, valor_tarifa_hora])
+    fila_tarifa_distancia = ft.Row([label_tarifa_distancia, valor_tarifa_distancia])
 
-    # Tarifa por distancia
-    label_tarifa_distancia = ft.Text("Tarifa por distancia:", visible=False)
-    valor_tarifa_distancia = ft.Text("", visible=False)
+    # Botón nueva consulta y ver ruta
+    boton_regresar_paso2 = ft.ElevatedButton("Regresar")
+    boton_nueva_consulta = ft.ElevatedButton("Nueva consulta")
+    boton_ver_ruta = ft.ElevatedButton("Ver ruta")
 
-    # Botón nueva consulta
-    boton_nueva_consulta = ft.ElevatedButton(
-        "Nueva consulta",
-        disabled=True,
-        visible=False
-    )
+    loader = ft.ProgressRing(visible=False)
 
-    # Botón ver ruta
-    boton_ver_ruta = ft.ElevatedButton(
-        "Ver ruta",
-        disabled=True,
-        visible=False
-    )
+    #
+    # --- CONTENEDORES ---
+    #
 
+    # --- PASO 1 ---
+    paso1 = ft.Column([label_paso_1, direccion1, direccion2, boton_calcular_td, loader],
+                      visible=True)
 
+    # --- PASO 2 ---
+    paso2 = ft.Column([label_paso_2, fila_tiempo, fila_distancia, 
+                       ft.Row([precio_hora, precio_km]),
+                       boton_regresar_paso1, boton_calcular_tarifa],
+                      visible=False)
 
-
-
-
-
+    # --- PASO 3 ---
+    paso3 = ft.Column([fila_tarifa_hora, fila_tarifa_distancia,
+                       boton_regresar_paso2, boton_ver_ruta, boton_nueva_consulta],
+                      visible=False)
 
     #
     # --- EVENTOS ---
@@ -137,6 +102,11 @@ def crear_pantalla_principal(page: ft.Page):
 
     # 1. Evento calcular tiempo/distancia
     def calcular_td_click(e):
+
+        # 0. "pensando"
+        boton_calcular_td.disabled = True
+        loader.visible = True
+        page.update()
 
         # 1. Obtener direcciones
         origen = direccion1.value
@@ -152,70 +122,66 @@ def crear_pantalla_principal(page: ft.Page):
             return
 
         # 3. Calcular distancia real
-        tiempo_min, distancia_km = evaluar_coordenadas(lat1, lon1, lat2, lon2)
-        if tiempo_min is None or distancia_km is None:
+        tiempo_s, distancia_m = evaluar_coordenadas(lat1, lon1, lat2, lon2)
+        if tiempo_s is None or distancia_m is None:
             mostrar_error(page, ("No se pudo calcular la ruta. "
                                 "Verifique que las direcciones no estén vacías y "
                                 "que tengan un formato correcto."))
             return
 
         # 4. Mostrar resultados
-        valor_tiempo.value = f"{tiempo_min} minutos"
-        valor_distancia.value = f"{distancia_km:.2f} km"
-        label_tiempo.visible = True
-        valor_tiempo.visible = True
-        label_distancia.visible = True
-        valor_distancia.visible = True
+        hora, minutos, km = calcula_tiempo_distancia(tiempo_s, distancia_m)
+        valor_tiempo.value = f"{hora} horas {minutos} minutos"
+        valor_distancia.value = f"{km:.2f} km"
 
-        # 5. Habilitar precios
-        precio_hora.visible = True
-        precio_hora.disabled = False
-        precio_km.visible = True
-        precio_km.disabled = False
-
-        # 7. Habilitar botón calcular tarifa
-        boton_calcular_tarifa.visible = True
-        boton_calcular_tarifa.disabled = False
-
-        # 8. Habilitar botón nueva consulta
-        boton_nueva_consulta.visible = True
-        boton_nueva_consulta.disabled = False
-
+        # 5. Finalizar
+        boton_calcular_td.disabled = False
+        loader.visible = False
+        paso1.visible = False
+        paso2.visible = True
         page.update()
 
+    boton_calcular_td.on_click = calcular_td_click
+
+    # 2. Regresa al paso 1
+    def regresar_paso1_click(e):
+        paso1.visible = True
+        paso2.visible = False
+        page.update()
+
+    boton_regresar_paso1.on_click = regresar_paso1_click
 
 
-
-
-
-
-
-
-    # 2. Evento calcular tarifa
+    # 3. Evento calcular tarifa
     def calcular_tarifa_click(e):
 
-        # Simulación temporal
-        tarifa_hora = float(precio_hora.value) * 1.5
-        tarifa_distancia = float(precio_km.value) * 12.5
+        tarifa_hora, tarifa_distancia = calcular_tarifa(hora, minutos, km, 
+                                                        float(precio_hora.value), float(precio_km.value))
 
         valor_tarifa_hora.value = f"S/ {tarifa_hora:.2f}"
         valor_tarifa_distancia.value = f"S/ {tarifa_distancia:.2f}"
 
-        # Mostrar tarifas
-        label_tarifa_hora.visible = True
-        valor_tarifa_hora.visible = True
-        label_tarifa_distancia.visible = True
-        valor_tarifa_distancia.visible = True
-
-        # Mostrar botones finales
-        boton_nueva_consulta.visible = True
-        boton_nueva_consulta.disabled = False
-        boton_ver_ruta.visible = True
-        boton_ver_ruta.disabled = False
-
+        paso2.visible = False
+        paso3.visible = True
+        
         page.update()
 
     boton_calcular_tarifa.on_click = calcular_tarifa_click
+
+    # 4. Regresa al paso 2
+    def regresar_paso2_click(e):
+        paso2.visible = True
+        paso3.visible = False
+        page.update()
+
+    boton_regresar_paso2.on_click = regresar_paso2_click
+
+
+
+
+
+
+
 
     # 3. Evento nueva consulta
     def nueva_consulta_click(e):
@@ -254,6 +220,12 @@ def crear_pantalla_principal(page: ft.Page):
 
     boton_ver_ruta.on_click = ver_ruta_click
 
+
+
+
+
+
+
     #
     # --- LAYOUT ---
     #
@@ -261,28 +233,9 @@ def crear_pantalla_principal(page: ft.Page):
     page.add(
         ft.Column(
             controls=[
-                direccion1,
-                direccion2,
-                boton_calcular_td,
-
-                # Tiempo y distancia
-                label_tiempo,
-                valor_tiempo,
-                label_distancia,
-                valor_distancia,
-
-                # Precios
-                ft.Row([precio_hora, precio_km]),
-                boton_calcular_tarifa,
-
-                # Tarifas
-                label_tarifa_hora,
-                valor_tarifa_hora,
-                label_tarifa_distancia,
-                valor_tarifa_distancia,
-
-                # Botones finales
-                ft.Row([boton_nueva_consulta, boton_ver_ruta])
+                paso1,
+                paso2,
+                paso3
             ],
             spacing=15,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER
