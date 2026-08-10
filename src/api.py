@@ -1,6 +1,6 @@
 import requests
 from configuracion import API_KEY_GEOAPIFY
-from logica import limpiar_tipo_via
+from logica import limpiar_tipo_via, obtener_coordenadas_validas
 
 def leer_coordenadas_actual():
     try:
@@ -56,3 +56,29 @@ def coordenadas_a_direccion(lat, lon):
 
     except Exception:
         return None
+
+def direccion_a_coordenadas(direccion):
+    if direccion.strip() == "":
+        return None, None
+
+    try:
+        url = (
+            f"https://api.geoapify.com/v1/geocode/search?"
+            f"text={direccion}&"
+            f"format=json&"
+            f"apiKey={API_KEY_GEOAPIFY}"
+        )
+
+        data = requests.get(url).json()
+        resultados = data.get("results")
+        if not resultados:
+            return None, None
+
+        lat, lon = obtener_coordenadas_validas(data)
+        if lat is None or lon is None:
+            return None, None
+
+        return lat, lon
+
+    except Exception:
+        return None, None

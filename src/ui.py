@@ -1,29 +1,34 @@
 import flet as ft
-from api import leer_coordenadas_actual, coordenadas_a_direccion
-from logica import (direccion_a_coordenadas, evaluar_coordenadas)
+from api import leer_coordenadas_actual, coordenadas_a_direccion, direccion_a_coordenadas
+from logica import evaluar_coordenadas
 
+def mostrar_error(page, mensaje):
+    page.dialog = ft.AlertDialog(
+        title=ft.Text("Error"),
+        content=ft.Text(mensaje),
+    )
+    page.dialog.open = True
+    page.update()
 
 def crear_pantalla_principal(page: ft.Page):
     #
     # --- OBTENER UBICACION ACTUAL ---
     #
     lat, lon = leer_coordenadas_actual()
-    # Validación mínima
     if lat is None or lon is None:
-        page.dialog = ft.AlertDialog(
-            title=ft.Text("Error"),
-            content=ft.Text("No se pudo obtener las coordenadas de la ubicación actual."),
-        )
-        page.dialog.open = True
-        page.update()
-        return
-    direccion_actual = coordenadas_a_direccion(lat, lon)
+        mostrar_error(page, "No se pudo obtener las coordenadas de la ubicación actual, por favor ingresarla.")
+        direccion_actual = ""
+    else:
+        direccion_actual = coordenadas_a_direccion(lat, lon)
+        if direccion_actual is None:
+            mostrar_error(page, "La dirección actual no se pudo obtener, por favor ingresarla.")
+            direccion_actual = ""
 
     #
     # --- OBJETOS PRINCIPALES ---
     #
 
-    # Dirección 1 (inicializada con ubicación actual)
+    # Dirección 1 (inicializada con la direccion actual)
     direccion1 = ft.TextField(
         label="Dirección de origen",
         value=direccion_actual,
@@ -137,29 +142,21 @@ def crear_pantalla_principal(page: ft.Page):
         origen = direccion1.value
         destino = direccion2.value
 
-        # Validación mínima
-        if origen.strip() == "" or destino.strip() == "":
-            page.dialog = ft.AlertDialog(
-                title=ft.Text("Error"),
-                content=ft.Text("Debe ingresar ambas direcciones."),
-            )
-            page.dialog.open = True
-            page.update()
-            return
-
         # 2. Convertir direcciones a coordenadas
         lat1, lon1 = direccion_a_coordenadas(origen)
         lat2, lon2 = direccion_a_coordenadas(destino)
+        if lat1 is None or lon1 is None or lat2 is None or lon2 is None:
+            mostrar_error(page, ("No se pudo calcular la ruta. "
+                                "Verifique que las direcciones no estén vacías y "
+                                "que tengan un formato correcto."))
+            return
 
         # 3. Calcular distancia real
         tiempo_min, distancia_km = evaluar_coordenadas(lat1, lon1, lat2, lon2)
         if tiempo_min is None or distancia_km is None:
-            page.dialog = ft.AlertDialog(
-                title=ft.Text("Error"),
-                content=ft.Text("No se pudo calcular la ruta. Verifique las direcciones."),
-            )
-            page.dialog.open = True
-            page.update()
+            mostrar_error(page, ("No se pudo calcular la ruta. "
+                                "Verifique que las direcciones no estén vacías y "
+                                "que tengan un formato correcto."))
             return
 
         # 4. Mostrar resultados
@@ -185,6 +182,12 @@ def crear_pantalla_principal(page: ft.Page):
         boton_nueva_consulta.disabled = False
 
         page.update()
+
+
+
+
+
+
 
 
 
