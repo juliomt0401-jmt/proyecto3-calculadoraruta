@@ -86,7 +86,7 @@ def direccion_a_coordenadas(direccion):
 def evaluar_coordenadas(lat1, lon1, lat2, lon2):
     # Validación básica
     if None in [lat1, lon1, lat2, lon2]:
-        return None, None
+        return None, None, None
 
     try:
         url = (
@@ -101,22 +101,23 @@ def evaluar_coordenadas(lat1, lon1, lat2, lon2):
         # Extraer ruta
         features = data.get("features")
         if not features:
-            return None, None
+            return None, None, None
 
         propiedades = features[0].get("properties", {})
         leg = propiedades.get("legs", [{}])[0]
 
         distancia_m = leg.get("distance")
         tiempo_s = leg.get("time")
+        ruta = features[0].get("geometry")
 
         if distancia_m is None or tiempo_s is None:
-            return None, None
+            return None, None, None
 
         # Convertir unidades
         distancia_km = distancia_m / 1000
         tiempo_min = tiempo_s / 60
 
-        return distancia_m, tiempo_s
+        return distancia_m, tiempo_s, ruta
 
     except Exception:
-        return None, None
+        return None, None, None

@@ -11,6 +11,7 @@ def mostrar_error(page, mensaje):
     page.dialog.open = True
     page.update()
 
+
 def crear_pantalla_principal(page: ft.Page):
     #
     # --- VARIABLES ---
@@ -18,6 +19,7 @@ def crear_pantalla_principal(page: ft.Page):
     hora = int(0)
     minutos = int(0)
     km = float(0)
+    ruta = None
 
     # --- OBTENER UBICACION ACTUAL ---
     #
@@ -35,8 +37,19 @@ def crear_pantalla_principal(page: ft.Page):
     # --- OBJETOS
     #
 
+    # Encabezado de pasos
+    txt_paso1 = ft.Text("Paso 1", size=20, color="red", weight="bold")
+    txt_paso2 = ft.Text("Paso 2", size=20)
+    txt_paso3 = ft.Text("Paso 3", size=20)
+
+    pasos_header = ft.Row(
+        [txt_paso1, txt_paso2, txt_paso3],
+        spacing=50,
+        alignment=ft.MainAxisAlignment.CENTER
+    )
+
     # Direcciones
-    label_paso_1 = ft.Text("Paso 1:", weight="bold")
+    label_paso_1 = ft.Text("Ingresar las direcciones", size=30, weight="bold")
     direccion1 = ft.TextField(label="Dirección de origen", value=direccion_actual, width=800)
     direccion2 = ft.TextField(label="Dirección de destino", value="", width=800)
 
@@ -44,13 +57,11 @@ def crear_pantalla_principal(page: ft.Page):
     boton_calcular_td = ft.ElevatedButton("Calcular tiempo/distancia")
 
     # Tiempo y distancia
-    label_paso_2 = ft.Text("Paso 2:", weight="bold")
+    label_paso_2 = ft.Text("Ingresar los precios:", size=30, weight="bold")
     label_tiempo = ft.Text("Tiempo estimado:")
     valor_tiempo = ft.Text("", weight="bold")
     label_distancia = ft.Text("Distancia:")
     valor_distancia = ft.Text("", weight="bold")
-    fila_tiempo = ft.Row([label_tiempo, valor_tiempo])
-    fila_distancia = ft.Row([label_distancia, valor_distancia])
 
     # Precio por hora
     precio_hora = ft.TextField(label="Precio por hora (S/)", value="0", width=200)
@@ -63,12 +74,12 @@ def crear_pantalla_principal(page: ft.Page):
     boton_calcular_tarifa = ft.ElevatedButton("Calcular tarifa")
 
     # Tarifa por hora y distancia
-    label_tarifa_hora = ft.Text("Tarifa por hora:", visible=False)
-    valor_tarifa_hora = ft.Text("", weight="bold")
-    label_tarifa_distancia = ft.Text("Tarifa por distancia:")
-    valor_tarifa_distancia = ft.Text("", weight="bold")
-    fila_tarifa_hora = ft.Row([label_tarifa_hora, valor_tarifa_hora])
-    fila_tarifa_distancia = ft.Row([label_tarifa_distancia, valor_tarifa_distancia])
+    label_paso_3 = ft.Text("Resultados:", size=30, weight="bold")
+    label_tarifa_hora = ft.Text("Tarifa por hora:", size=20)
+    valor_tarifa_hora = ft.Text("", size=20, weight="bold")
+    label_tarifa_distancia = ft.Text("Tarifa por distancia:", size=20)
+    valor_tarifa_distancia = ft.Text("", size=20, weight="bold")
+
 
     # Botón nueva consulta y ver ruta
     boton_regresar_paso2 = ft.ElevatedButton("Regresar")
@@ -86,15 +97,46 @@ def crear_pantalla_principal(page: ft.Page):
                       visible=True)
 
     # --- PASO 2 ---
-    paso2 = ft.Column([label_paso_2, fila_tiempo, fila_distancia, 
-                       ft.Row([precio_hora, precio_km]),
+    paso2 = ft.Column([label_paso_2, 
+                       ft.Row([label_tiempo, valor_tiempo], alignment=ft.MainAxisAlignment.CENTER), 
+                       ft.Row([label_distancia, valor_distancia], alignment=ft.MainAxisAlignment.CENTER), 
+                       ft.Row([precio_hora, precio_km], alignment=ft.MainAxisAlignment.CENTER),
                        boton_regresar_paso1, boton_calcular_tarifa],
-                      visible=False)
+                      visible=False,
+                      horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+    #fila_tiempo = ft.Row([label_tiempo, valor_tiempo])
+    #fila_distancia = ft.Row([label_distancia, valor_distancia])
 
     # --- PASO 3 ---
-    paso3 = ft.Column([fila_tarifa_hora, fila_tarifa_distancia,
+    paso3 = ft.Column([label_paso_3,
+                       ft.Row([label_tarifa_hora, valor_tarifa_hora], alignment=ft.MainAxisAlignment.CENTER), 
+                       ft.Row([label_tarifa_distancia, valor_tarifa_distancia], alignment=ft.MainAxisAlignment.CENTER),
                        boton_regresar_paso2, boton_ver_ruta, boton_nueva_consulta],
-                      visible=False)
+                       visible=False,
+                       horizontal_alignment=ft.CrossAxisAlignment.CENTER)
+  
+    #
+    # ---FUNCION INTERNA ---
+    #
+    def activar_paso(n):
+        txt_paso1.color = "black"
+        txt_paso1.weight = "normal"
+        txt_paso2.color = "black"
+        txt_paso2.weight = "normal"
+        txt_paso3.color = "black"
+        txt_paso3.weight = "normal"
+
+        if n == 1:
+            txt_paso1.color = "red"
+            txt_paso1.weight = "bold"
+        elif n == 2:
+            txt_paso2.color = "red"
+            txt_paso2.weight = "bold"
+        elif n == 3:
+            txt_paso3.color = "red"
+            txt_paso3.weight = "bold"
+
+        page.update()
 
     #
     # --- EVENTOS ---
@@ -102,6 +144,7 @@ def crear_pantalla_principal(page: ft.Page):
 
     # 1. Evento calcular tiempo/distancia
     def calcular_td_click(e):
+        nonlocal hora, minutos, km, ruta
 
         # 0. "pensando"
         boton_calcular_td.disabled = True
@@ -122,7 +165,7 @@ def crear_pantalla_principal(page: ft.Page):
             return
 
         # 3. Calcular distancia real
-        tiempo_s, distancia_m = evaluar_coordenadas(lat1, lon1, lat2, lon2)
+        tiempo_s, distancia_m, ruta = evaluar_coordenadas(lat1, lon1, lat2, lon2)
         if tiempo_s is None or distancia_m is None:
             mostrar_error(page, ("No se pudo calcular la ruta. "
                                 "Verifique que las direcciones no estén vacías y "
@@ -139,7 +182,7 @@ def crear_pantalla_principal(page: ft.Page):
         loader.visible = False
         paso1.visible = False
         paso2.visible = True
-        page.update()
+        activar_paso(2)
 
     boton_calcular_td.on_click = calcular_td_click
 
@@ -147,7 +190,7 @@ def crear_pantalla_principal(page: ft.Page):
     def regresar_paso1_click(e):
         paso1.visible = True
         paso2.visible = False
-        page.update()
+        activar_paso(1)
 
     boton_regresar_paso1.on_click = regresar_paso1_click
 
@@ -163,8 +206,7 @@ def crear_pantalla_principal(page: ft.Page):
 
         paso2.visible = False
         paso3.visible = True
-        
-        page.update()
+        activar_paso(3)
 
     boton_calcular_tarifa.on_click = calcular_tarifa_click
 
@@ -172,7 +214,7 @@ def crear_pantalla_principal(page: ft.Page):
     def regresar_paso2_click(e):
         paso2.visible = True
         paso3.visible = False
-        page.update()
+        activar_paso(2)
 
     boton_regresar_paso2.on_click = regresar_paso2_click
 
@@ -233,6 +275,7 @@ def crear_pantalla_principal(page: ft.Page):
     page.add(
         ft.Column(
             controls=[
+                pasos_header,
                 paso1,
                 paso2,
                 paso3
