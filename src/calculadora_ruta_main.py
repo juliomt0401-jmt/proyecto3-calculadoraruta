@@ -11,4 +11,4 @@ def main(page: ft.Page):
 
 # Ejecutar la app
 if __name__ == "__main__":
-    ft.app(target=main)
+    ft.run(main)

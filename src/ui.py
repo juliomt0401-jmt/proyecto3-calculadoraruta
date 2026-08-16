@@ -2,6 +2,8 @@ import flet as ft
 from api import (leer_coordenadas_actual, coordenadas_a_direccion, 
                  direccion_a_coordenadas, evaluar_coordenadas)
 from logica import calcula_tiempo_distancia, calcular_tarifa
+import flet_map as map
+
 
 def mostrar_error(page, mensaje):
     page.dialog = ft.AlertDialog(
@@ -165,7 +167,7 @@ def crear_pantalla_principal(page: ft.Page):
             return
 
         # 3. Calcular distancia real
-        tiempo_s, distancia_m, ruta = evaluar_coordenadas(lat1, lon1, lat2, lon2)
+        distancia_m, tiempo_s, ruta = evaluar_coordenadas(lat1, lon1, lat2, lon2)
         if tiempo_s is None or distancia_m is None:
             mostrar_error(page, ("No se pudo calcular la ruta. "
                                 "Verifique que las direcciones no estén vacías y "
@@ -199,7 +201,8 @@ def crear_pantalla_principal(page: ft.Page):
     def calcular_tarifa_click(e):
 
         tarifa_hora, tarifa_distancia = calcular_tarifa(hora, minutos, km, 
-                                                        float(precio_hora.value), float(precio_km.value))
+                                                        float(precio_hora.value), 
+                                                        float(precio_km.value))
 
         valor_tarifa_hora.value = f"S/ {tarifa_hora:.2f}"
         valor_tarifa_distancia.value = f"S/ {tarifa_distancia:.2f}"
@@ -218,55 +221,97 @@ def crear_pantalla_principal(page: ft.Page):
 
     boton_regresar_paso2.on_click = regresar_paso2_click
 
-
-
-
-
-
-
-
     # 3. Evento nueva consulta
     def nueva_consulta_click(e):
+        nonlocal direccion_actual
 
         # Reset de todos los objetos
-        direccion1.value = "Mi ubicación actual"
+        direccion1.value = direccion_actual
         direccion2.value = ""
 
-        # Ocultar todo excepto los 3 objetos iniciales
-        for obj in [
-            label_tiempo, valor_tiempo,
-            label_distancia, valor_distancia,
-            precio_hora, precio_km,
-            boton_calcular_tarifa,
-            label_tarifa_hora, valor_tarifa_hora,
-            label_tarifa_distancia, valor_tarifa_distancia,
-            boton_nueva_consulta, boton_ver_ruta
-        ]:
-            obj.visible = False
-            if hasattr(obj, "disabled"):
-                obj.disabled = True
-
-        page.update()
+        paso1.visible = True
+        paso2.visible = False
+        paso3.visible = False
+        activar_paso(1)
 
     boton_nueva_consulta.on_click = nueva_consulta_click
 
     # 4. Evento ver ruta
     def ver_ruta_click(e):
-        # Aquí luego abriremos un mapa real
-        page.dialog = ft.AlertDialog(
-            title=ft.Text("Ruta"),
-            content=ft.Text("Aquí se mostrará el mapa con la ruta."),
+
+        nonlocal ruta
+
+        if not ruta:
+            mostrar_error(page, "No hay ruta disponible.")
+            return
+
+        # Geoapify → MultiLineString → tomamos el primer punto del primer tramo
+        primer_tramo = ruta["coordinates"][0]
+        lon_inicio, lat_inicio = primer_tramo[0]
+
+        # Último punto del último tramo → destino
+        ultimo_tramo = ruta["coordinates"][-1]
+        lon_fin, lat_fin = ultimo_tramo[-1]
+
+        # Convertir todas las coordenadas de Geoapify [lon, lat] a objetos MapLatitudeLongitude(lat, lon)
+        puntos_polyline = []
+        for tramo in ruta["coordinates"]:
+            for lon, lat in tramo:
+                puntos_polyline.append(map.MapLatitudeLongitude(lat, lon))
+
+        # Construir el mapa interactivo
+        mapa_control = map.Map(
+            expand=True,
+            initial_center=map.MapLatitudeLongitude(lat_fin, lon_fin),
+            initial_zoom=13,
+            layers=[
+                # Capa base de OpenStreetMap
+                #map.TileLayer(
+                #    url_template="https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                #    user_agent_package_name="CalculadoraRutaApp/1.0 (juliomt0401@gmail.com)",
+                #),
+                map.TileLayer(
+                    url_template="https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png",
+                ),
+
+                # Capa para trazar la línea de la ruta
+                map.PolylineLayer(
+                    polylines=[
+                        map.PolylineMarker(
+                            border_stroke_width=5,
+                            color=ft.Colors.BLUE,
+                            coordinates=puntos_polyline,
+                        )
+                    ]
+                ),
+                # Capa para los marcadores de Origen y Destino
+                map.MarkerLayer(
+                    markers=[
+                        map.Marker(
+                            content=ft.Icon(ft.Icons.LOCATION_ON, color=ft.Colors.GREEN, size=30),
+                            coordinates=map.MapLatitudeLongitude(lat_inicio, lon_inicio),
+                        ),
+                        map.Marker(
+                            content=ft.Icon(ft.Icons.LOCATION_ON, color=ft.Colors.RED, size=30),
+                            coordinates=map.MapLatitudeLongitude(lat_fin, lon_fin),
+                        ),
+                    ]
+                ),
+            ],
         )
-        page.dialog.open = True
+
+        # Contenedor con altura fija para evitar desbordes de UI
+        contenedor_mapa = ft.Container(
+            content=mapa_control,
+            height=400,
+            width=800,
+            border_radius=10,
+        )
+
+        paso3.controls.append(contenedor_mapa)
         page.update()
 
     boton_ver_ruta.on_click = ver_ruta_click
-
-
-
-
-
-
 
     #
     # --- LAYOUT ---
